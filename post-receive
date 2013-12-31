@@ -1,0 +1,78 @@
+#!/bin/bash
+
+FETCHER_ROOT=/home/git/fetchers/svn2git-coredb
+FETCHER_GIT_REMOTE=gitlab
+LOCK_FILE=/tmp/gitcoredbupdate.lockfile 
+SVN_USERNAME=guminiak
+
+export GIT_ASKPASS="/home/git/.config/git_askpass"
+
+test -d $FETCHER_ROOT || echo 'ConfError: FETCHER root dir not set in post-receive'
+
+GIT_DIR=$FETCHER_ROOT/.git 
+GIT_WORK_TREE="${FETCHER_ROOT%/.git}"
+cd $GIT_WORK_TREE
+
+#exit 0
+
+CLEAN_PUSH=0
+ERROR_WHILE_PUSH=1
+SYNC_NEEDED=2
+. git-sh-setup
+(
+        flock -n 9 || exit $CLEAN_PUSH 
+        
+        PUSH_STATUS=$CLEAN_PUSH
+
+        git fetch $FETCHER_GIT_REMOTE --quiet || die_with_status $ERROR_WHILE_PUSH 'Error: Cound not fetch fetcher git remote.'
+        while read oldrev newrev refname; do
+                refname=${refname##*/}
+                git show-ref --verify --quiet refs/heads/$refname
+                if [ $? = 0 ]; then
+
+			: ${GITSVN_USERNAME:?"You need to set GITSVN_USERNAME property to be able to commit to SVN"}
+			: ${GITSVN_PASSWD:?"You need to set GITSVN_PASSWD property to be able to commit to SVN"}
+
+                        PUSH_STATUS=$SYNC_NEEDED
+                        git svn --username=$SVN_USERNAME fetch > /dev/null --quiet || die_with_status $ERROR_WHILE_PUSH 'Error: could not fetch from SVN'
+                        git checkout $refname --quiet || die_with_status $ERROR_WHILE_PUSH 'Error: checking out branch did not succeed'
+                        git svn --username=$SVN_USERNAME rebase > /dev/null 2>&1 || die_with_status $ERROR_WHILE_PUSH 'Error: could not fetch from SVN'
+                        echo "Merging: $refname -> (svn)$refname"
+			
+			HEAD_SHA=$(git rev-parse --verify HEAD)
+			if test "$HEAD_SHA" != "$(git merge-base HEAD gitlab/$refname)"
+			then
+				die_with_status $ERROR_WHILE_PUSH "SVN contains newer commits than $refname branch" 
+			fi
+                        git merge gitlab/$refname --no-ff || die "THIS SHOULD NOT HAPPEN!"
+
+			export SVN_PASSWD=$GITSVN_PASSWD
+                        git svn --username=$GITSVN_USERNAME dcommit --add-author-from || PUSH_STATUS=$ERROR_WHILE_PUSH
+			unset SVN_PASSWD
+
+                        git reset --hard --quiet
+                        git clean -dfx --quiet
+                        if [ $PUSH_STATUS -eq $ERROR_WHILE_PUSH ]; then 
+                                die_with_status $ERROR_WHILE_PUSH "Could not push commits to SVN"
+                        fi
+                fi
+        done    
+        exit $PUSH_STATUS
+) 9>$LOCK_FILE
+
+UPDATERETVAL=$?
+if [ $UPDATERETVAL -eq $ERROR_WHILE_PUSH ]; then
+        echo
+        echo "Some branches could not be pushed to SVN."
+        echo "All SVN synchronized branches will be updated now."
+        echo "Please check the branches and push the commits"
+        echo "again if necessary."
+        echo
+fi
+
+if [ $UPDATERETVAL -ne $CLEAN_PUSH ]; then
+	echo "Syncing SVN and git, this may take a moment..."
+	/home/git/bin/sync-coredb  >> /home/git/logs/sync-coredb.log 2>&1
+	die_with_status $UPDATERETVAL
+fi
+

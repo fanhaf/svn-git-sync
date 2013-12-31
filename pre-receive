@@ -1,0 +1,24 @@
+#!/bin/bash
+
+FETCHER_ROOT=/home/git/fetchers/svn2git-coredb
+LOCK_FILE=/tmp/gitcoredbupdate.lockfile 
+
+test -d $FETCHER_ROOT || echo 'ConfError: FETCHER root dir not set in pre-receive'
+
+GIT_DIR=$FETCHER_ROOT/.git 
+GIT_WORK_TREE="${FETCHER_ROOT%/.git}"
+cd $GIT_WORK_TREE
+
+. git-sh-setup
+(
+	while read oldrev newrev refname; do
+		refname=${refname##*/}
+		git show-ref --verify --quiet refs/heads/$refname
+		if [ $? = 0 ]; then
+			flock -n 9 || die 'SVN update is in progress, please push again in a moment!'
+		fi
+	done	
+	exit 0
+) 9>$LOCK_FILE 
+
+exit $?

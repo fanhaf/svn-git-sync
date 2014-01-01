@@ -1,33 +1,23 @@
 #!/bin/bash
 set -x
+set -e
 
-rm -rf ~/src/gitfacade
-sudo rm -rf /home/git/fetchers/*
-killall svnserve
 
-ROOT=~/src/gitfacade
-FROOT=/home/git/fetchers
+GITREPO=gitrepo
+ROOT=svnrepo
+FROOT=fetchers
+
+rm -rf $ROOT
+rm -rf $FROOT
+rm -rf $GITREPO
+killall svnserve || echo "No SVN server running"
+
+mkdir $GITREPO && cd $GITREPO && git init --bare && cd ..
+
+ln pre-receive $GITREPO/hooks/pre-receive -s
+ln post-receive $GITREPO/hooks/post-receive -s
+
 mkdir -p $ROOT ; cd $ROOT
-
-git clone git@localhost:gitolite-admin
-cd gitolite-admin
-
-sed -i 7,8d conf/gitolite.conf
-git commit -am"removing coredb"
-git push origin master
-
-sudo rm /home/git/repositories/coredb.git -r
-
-echo "repo  coredb" >> conf/gitolite.conf
-echo "      RW+ =   @all" >> conf/gitolite.conf
-
-git commit -am"adding coredb"
-git push origin master
-
-sudo ln /home/git/pre-receive /home/git/repositories/coredb.git/hooks/pre-receive -s
-sudo ln /home/git/post-receive /home/git/repositories/coredb.git/hooks/post-receive -s
-
-cd ..
 
 svnadmin create svn
 
@@ -69,16 +59,15 @@ svn add recipe
 svn commit --username harry --password harryssecret -m 'Added recipe.'
 
 cd $FROOT 
-git svn clone --username=guminiak -s svn://localhost/experiments/ svn2git-coredb
-cd svn2git-coredb
+git svn clone --username=guminiak -s svn://localhost/experiments/ svn2git
+cd svn2git
 
-git remote add gitlab git@localhost:coredb
-sudo chown -R git:git $FROOT/*
+git remote add gitlab git@localhost:gitrepo
 
 git push gitlab master
 
 cd $ROOT
-git clone git@localhost:coredb work
+git clone git@localhost:gitrepo work
 cd work
 git push origin :testbranch :testbranch2
 
@@ -92,7 +81,7 @@ salt, 4 cups
 water, 1 tablespoon
 ing
 git add recipe
-git ci -m 'Added ingredients list.'
+git commit -m 'Added ingredients list.'
 git push 2>&1 | tee $ROOT/tmp
 fgrep "Committing to svn://localhost/experiments/trunk" $ROOT/tmp || exit 1
 fgrep "Some branches could not be pushed to SVN" $ROOT/tmp && exit 1
@@ -107,7 +96,7 @@ git pull --rebase
 cat >> recipe <<ing
 Servings: 3
 ing
-git ci -am 'Added Serving size.'
+git commit -am 'Added Serving size.'
 git push 2>&1 | tee $ROOT/tmp
 fgrep "Committing to svn://localhost/experiments/trunk" $ROOT/tmp || exit 1
 fgrep "Some branches could not be pushed to SVN" $ROOT/tmp && exit 1
@@ -124,14 +113,14 @@ LIST
 svn add shopping
 svn commit -m 'Started a shopping list.'
 
-sudo su -l git -c $FROOT/../bin/sync-coredb
+$FROOT/../bin/sync-svnrepo.sh
 
 cd $ROOT/work
 cat >> recipe <<INST
 Begin by adding salt to the water and bringing it to a boil.
 INST
 
-git ci -am "Added step 1"
+git commit -am "Added step 1"
 git push
 PUSH_RES=$?
 if [ $PUSH_RES = 0 ]; then
@@ -158,7 +147,7 @@ cd $ROOT/work
 git pull --rebase
 sed -i 's/salt, 4 cups/Salt, 1 tablespoon/' recipe
 sed -i 's/water, 1 tablespoon/Water, 1 cup/' recipe
-git ci -am 'Fixed salt/water qty mismatch'
+git commit -am 'Fixed salt/water qty mismatch'
 
 git push 2>&1 | tee push.log
 grep -q "Some branches could not be pushed to SVN." push.log
@@ -185,7 +174,7 @@ echo '****************************************'
 cd $ROOT/work
 git pull --rebase
 sed -i 's/tablespoon/small spoon/' recipe
-git ci -am 'Changed tablespoon to small spoon'
+git commit -am 'Changed tablespoon to small spoon'
 
 git push origin master:master master:testbranch2 2>&1 | tee $ROOT/tmp
 fgrep "Committing to svn://localhost/experiments/trunk" $ROOT/tmp || exit 1
@@ -199,13 +188,13 @@ echo '****************************************'
 cd $ROOT/work
 git pull --rebase
 sed -i 's/small spoons/tablespoons/' recipe
-git ci -am 'Fixing one instance of small spoons'
+git commit -am 'Fixing one instance of small spoons'
 
 (
     flock 9
     git push origin master:master 2>&1 | tee $ROOT/tmp
     fgrep "SVN update is in progress, please push again in a moment!" $ROOT/tmp || exit 1
-) 9</tmp/gitcoredbupdate.lockfile 
+) 9</tmp/gitupdate.lockfile 
 
 if [ $? -ne 0 ]; then
     exit 1

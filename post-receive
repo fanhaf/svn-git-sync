@@ -1,8 +1,8 @@
 #!/bin/bash
 
-FETCHER_ROOT=/home/git/fetchers/svn2git-coredb
+FETCHER_ROOT=/home/git/fetchers/svn2git
 FETCHER_GIT_REMOTE=gitlab
-LOCK_FILE=/tmp/gitcoredbupdate.lockfile 
+LOCK_FILE=/tmp/gitupdate.lockfile 
 SVN_USERNAME=guminiak
 
 export GIT_ASKPASS="/home/git/.config/git_askpass"
@@ -72,7 +72,7 @@ fi
 
 if [ $UPDATERETVAL -ne $CLEAN_PUSH ]; then
 	echo "Syncing SVN and git, this may take a moment..."
-	/home/git/bin/sync-coredb  >> /home/git/logs/sync-coredb.log 2>&1
+	/home/git/bin/sync-svnrepo.sh  >> /home/git/logs/sync-svnrepo.log 2>&1
 	die_with_status $UPDATERETVAL
 fi
 

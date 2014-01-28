@@ -2,11 +2,10 @@
 set -x
 set -e
 
-
-TESTDIR=/home/michalg/src/bash/svn-git-sync
-GITREPO=/home/michalg/src/bash/svn-git-sync/gitrepo
-ROOT=/home/michalg/src/bash/svn-git-sync/svnrepo
-FROOT=fetchers
+TESTDIR=`pwd`
+GITREPO=$TESTDIR/gitrepo
+ROOT=$TESTDIR/svnrepo
+FROOT=$TESTDIR/fetchers
 
 rm -rf $ROOT
 rm -rf $FROOT

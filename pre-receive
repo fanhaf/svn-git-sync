@@ -1,6 +1,6 @@
 #!/bin/bash
 
-FETCHER_ROOT=/home/git/fetchers/svn2git
+FETCHER_ROOT=/home/michalg/src/bash/svn-git-sync/fetchers/svn2git
 LOCK_FILE=/tmp/gitupdate.lockfile 
 
 test -d $FETCHER_ROOT || echo 'ConfError: FETCHER root dir not set in pre-receive'

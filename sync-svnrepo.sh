@@ -4,7 +4,7 @@ echo Syncing at `date`
 
 LOCK_FILE=/tmp/gitupdate.lockfile
 
-FETCHER_DIR=~/fetchers/svn2git/.git
+FETCHER_DIR=/home/michalg/src/bash/svn-git-sync/fetchers/svn2git/.git
 GIT_DIR=$FETCHER_DIR
 GIT_WORK_TREE=${FETCHER_DIR%/.git}
 

@@ -3,8 +3,9 @@ set -x
 set -e
 
 
-GITREPO=gitrepo
-ROOT=svnrepo
+TESTDIR=/home/michalg/src/bash/svn-git-sync
+GITREPO=/home/michalg/src/bash/svn-git-sync/gitrepo
+ROOT=/home/michalg/src/bash/svn-git-sync/svnrepo
 FROOT=fetchers
 
 rm -rf $ROOT
@@ -14,9 +15,10 @@ killall svnserve || echo "No SVN server running"
 
 mkdir $GITREPO && cd $GITREPO && git init --bare && cd ..
 
-ln pre-receive $GITREPO/hooks/pre-receive -s
-ln post-receive $GITREPO/hooks/post-receive -s
+ln $TESTDIR/pre-receive $GITREPO/hooks/pre-receive -s
+ln $TESTDIR/post-receive $GITREPO/hooks/post-receive -s
 
+mkdir -p $FROOT
 mkdir -p $ROOT ; cd $ROOT
 
 svnadmin create svn
@@ -57,19 +59,20 @@ cd svnwork/trunk
 echo "Mashed Potatoes" >> recipe
 svn add recipe
 svn commit --username harry --password harryssecret -m 'Added recipe.'
+cd ../../..
 
 cd $FROOT 
 git svn clone --username=guminiak -s svn://localhost/experiments/ svn2git
 cd svn2git
 
-git remote add gitlab git@localhost:gitrepo
+git remote add gitlab $GITREPO
 
 git push gitlab master
 
 cd $ROOT
-git clone git@localhost:gitrepo work
+git clone $GITREPO work
 cd work
-git push origin :testbranch :testbranch2
+#git push origin :testbranch :testbranch2
 
 echo '**********************************'
 echo 'Simple push single commit scenario'
@@ -113,13 +116,14 @@ LIST
 svn add shopping
 svn commit -m 'Started a shopping list.'
 
-$FROOT/../bin/sync-svnrepo.sh
+$TESTDIR/sync-svnrepo.sh
 
 cd $ROOT/work
 cat >> recipe <<INST
 Begin by adding salt to the water and bringing it to a boil.
 INST
 
+set +e
 git commit -am "Added step 1"
 git push
 PUSH_RES=$?
@@ -128,7 +132,7 @@ if [ $PUSH_RES = 0 ]; then
 fi
 
 git push 2>&1 | tee $ROOT/tmp
-fgrep "master -> master (non-fast-forward)" $ROOT/tmp || exit 1
+fgrep "master -> master (fetch first)" $ROOT/tmp || exit 1
 
 git pull --rebase
 git push 2>&1 | tee $ROOT/tmp
@@ -150,9 +154,9 @@ sed -i 's/water, 1 tablespoon/Water, 1 cup/' recipe
 git commit -am 'Fixed salt/water qty mismatch'
 
 git push 2>&1 | tee push.log
-grep -q "Some branches could not be pushed to SVN." push.log
-PUSH_RESULT=$?
-if [ "$PUSH_RESULT" = "0" ]; then
+grep -q "Some branches could not be pushed to SVN" push.log
+PUSH_FAILED=$?
+if [ "$PUSH_FAILED" = "1" ]; then
     exit 1
 fi
 

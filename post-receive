@@ -3,7 +3,7 @@
 FETCHER_ROOT=/home/michalg/src/bash/svn-git-sync/fetchers/svn2git
 FETCHER_GIT_REMOTE=gitlab
 LOCK_FILE=/tmp/gitupdate.lockfile 
-SVN_USERNAME=guminiak
+SVN_USERNAME=sally
 
 export GIT_ASKPASS="/home/git/.config/git_askpass"
 

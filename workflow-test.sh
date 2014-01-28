@@ -35,14 +35,12 @@ cat >| conf/passwd <<SVN
 [users]
 harry=harryssecret
 sally=sallyssecret
-guminiak=secret
 SVN
 
 cat >| conf/authz <<SVN
 [repository:/experiments]
 harry=rw
 sally=rw
-guminiak=rw
 SVN
 
 cd ..
@@ -61,7 +59,7 @@ svn commit --username harry --password harryssecret -m 'Added recipe.'
 cd ../../..
 
 cd $FROOT 
-git svn clone --username=guminiak -s svn://localhost/experiments/ svn2git
+git svn clone --username=sally -s svn://localhost/experiments/ svn2git
 cd svn2git
 
 git remote add gitlab $GITREPO
